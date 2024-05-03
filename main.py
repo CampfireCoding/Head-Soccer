@@ -51,7 +51,7 @@ def reset_all():
     # score
 
 
-def mypath(file_name):
+def asset(file_name):
     return os.path.join('assets', file_name)
 
 
@@ -149,7 +149,7 @@ def customization_screen(p1_info, p2_info):
     while True:
         screen.fill((33, 33, 33))
 
-        title_font = pygame.font.Font(mypath('Font.TTF'), 200)
+        title_font = pygame.font.Font(asset('Font.TTF'), 200)
         title_text = title_font.render('Head Soccer', True, (235, 235, 235))
 
         title_scale = 0.025 * (np.sin(time.time()) + 30)
@@ -228,7 +228,7 @@ def customization_screen(p1_info, p2_info):
                 pygame.mixer.Sound.play(countdown_sound)
                 for i in range(3, 0, -1):
                     update_and_draw()
-                    countdown_font = pygame.font.Font(mypath('Font.TTF'), 150)
+                    countdown_font = pygame.font.Font(asset('Font.TTF'), 150)
                     countdown_text = countdown_font.render(str(i), True, (230, 230, 230))
                     countdown_text_rect = countdown_text.get_rect()
                     countdown_text_rect.center = (width // 2, 300)
@@ -339,7 +339,7 @@ def selection_wheel(selection_display, angle, shift, position, wheel_type):
 
         item = selection_display[i]
         if wheel_type == 'head':
-            item_image = pygame.image.load(mypath(item + '_Head.png'))
+            item_image = pygame.image.load(asset(item + '_Head.png'))
             item_image.set_alpha(o)
 
             item_surface = pygame.transform.scale(item_image, (
@@ -347,7 +347,7 @@ def selection_wheel(selection_display, angle, shift, position, wheel_type):
                     distance_scale * head_scale[item][1] * head_size / item_image.get_size()[0] *
                     item_image.get_size()[1])))
         else:
-            item_image = pygame.image.load(mypath('Cleat ' + str(item) + '.png'))
+            item_image = pygame.image.load(asset('Cleat ' + str(item) + '.png'))
             item_image.set_alpha(o)
 
             item_surface = pygame.transform.scale(item_image, (
@@ -481,7 +481,7 @@ class Ball:
             if self.body.position.x < goal_width:
                 player_1.score += 1
                 scored = True
-                goal_sound = pygame.mixer.Sound(mypath('Goal ' + str(goal_sfx) + '.mp3'))
+                goal_sound = pygame.mixer.Sound(asset('Goal ' + str(goal_sfx) + '.mp3'))
                 goal_sound.set_volume(1)
                 pygame.mixer.Sound.play(goal_sound)
                 last_goal_sfx = goal_sfx
@@ -490,7 +490,7 @@ class Ball:
             elif self.body.position.x > width - goal_width:
                 player_2.score += 1
                 scored = True
-                goal_sound = pygame.mixer.Sound(mypath('Goal ' + str(goal_sfx) + '.mp3'))
+                goal_sound = pygame.mixer.Sound(asset('Goal ' + str(goal_sfx) + '.mp3'))
                 goal_sound.set_volume(1)
                 pygame.mixer.Sound.play(goal_sound)
                 last_goal_sfx = goal_sfx
@@ -750,12 +750,12 @@ if __name__ == "__main__":
 
     draw_options = pymunk.pygame_util.DrawOptions(screen)
 
-    goal_font = pygame.font.Font(mypath('Font.TTF'), 200)
+    goal_font = pygame.font.Font(asset('Font.TTF'), 200)
     goal_text = goal_font.render('Goal!', True, (220, 220, 220))
     goal_text_rect = goal_text.get_rect()
     goal_text_rect.center = (width // 2, 300)
 
-    score_font = pygame.font.Font(mypath('Font.TTF'), 100)
+    score_font = pygame.font.Font(asset('Font.TTF'), 100)
     score_text = score_font.render('0 - 0', True, (210, 210, 210))
 
     goal_height = 250 + modify('goal height')
@@ -777,7 +777,7 @@ if __name__ == "__main__":
     ball_size = 45 + modify('ball size')
     max_initial_ball_vel = 275
     ball_start_x, ball_start_y = width / 2, 150
-    ball_image = pygame.image.load(mypath("Soccer Ball.png"))
+    ball_image = pygame.image.load(asset("Soccer Ball.png"))
     ball_surface = pygame.transform.scale(ball_image, (ball_size, ball_size))
     original_ball_surface = ball_surface
     ball = Ball(ball_start_x, ball_start_y)
@@ -796,14 +796,14 @@ if __name__ == "__main__":
     heads = ['Nuwan', 'Mihir', 'Dad']
     head_surfaces = {}
     for i in heads:
-        head_image = pygame.image.load(mypath(str(i) + '_Head.png'))
+        head_image = pygame.image.load(asset(str(i) + '_Head.png'))
         head_surfaces[i] = pygame.transform.scale(head_image, (int(head_size * head_scale[i][0]), int(
             head_scale[i][1] * head_size / head_image.get_size()[0] * head_image.get_size()[1])))
 
     cleat_size = 50
     original_cleat_surfaces = {}
     for i in range(1, num_cleats + 1):
-        cleat_image = pygame.image.load(mypath('Cleat ' + str(i) + '.png'))
+        cleat_image = pygame.image.load(asset('Cleat ' + str(i) + '.png'))
         original_cleat_surfaces[i] = pygame.transform.scale(cleat_image, (
             cleat_size, int(cleat_size / cleat_image.get_size()[0] * cleat_image.get_size()[1])))
 
@@ -817,19 +817,19 @@ if __name__ == "__main__":
     motor_p_gain = 40
 
     # playsound.playsound('', False)
-    kick_sound = pygame.mixer.Sound(mypath('kick_ball.wav'))
+    kick_sound = pygame.mixer.Sound(asset('kick_ball.wav'))
     kick_sound.set_volume(0.75)
 
-    countdown_sound = pygame.mixer.Sound(mypath('Countdown.mp3'))
+    countdown_sound = pygame.mixer.Sound(asset('Countdown.mp3'))
     countdown_sound.set_volume(0.75)
 
-    selection_sound = pygame.mixer.Sound(mypath('Small_pop.wav'))
+    selection_sound = pygame.mixer.Sound(asset('Small_pop.wav'))
     selection_sound.set_volume(0.75)
 
-    start_game_sound = pygame.mixer.Sound(mypath('Start_Game.wav'))
+    start_game_sound = pygame.mixer.Sound(asset('Start_Game.wav'))
     start_game_sound.set_volume(0.75)
 
-    pygame.mixer.music.load(mypath('background_crowd.wav'))
+    pygame.mixer.music.load(asset('background_crowd.wav'))
     pygame.mixer.music.set_volume(0.04)
 
     goal_sfx = 1
