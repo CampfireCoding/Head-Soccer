@@ -1,7 +1,7 @@
 # ToDo :
 # Fix Phase through walls
 # FPS
-# Chang impulse to gradually changing velocity
+# Change impulse to gradually changing velocity
 # End screen
 # shape filter
 # fix big second jump glitch
@@ -19,7 +19,6 @@
 # add a bouncy wall
 # pong
 
-# github
 # exe
 
 
@@ -32,10 +31,92 @@ import math
 import time
 import random
 import sys
+import ctypes
+from ctypes import wintypes
 import os
 
 pygame.init()
 pygame.mixer.init()
+
+
+def recenter_window():
+    hwnd = pygame.display.get_wm_info()['window']
+    user32 = ctypes.WinDLL("user32")
+    user32.SetWindowPos.restype = wintypes.HWND
+    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.UINT]
+    user32.SetWindowPos(hwnd, -1, (screen_size[0] - current_width) // 2, (screen_size[1] - current_height) // 2 - 32 // 2, 0, 0, 0x0001)
+
+
+def window_key_control(e):
+    global fake_screen, fullscreen, current_width, current_height
+
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_u:   # Fullscreen
+        recenter_window()
+
+        if not fullscreen:
+            fake_screen = pygame.display.set_mode(screen_size, pygame.FULLSCREEN)
+        else:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (int((screen_size[0] + current_width) / 2), int((screen_size[1] + current_height) / 2))
+            fake_screen = pygame.display.set_mode((int(screen_size[0] / 1.2), int(screen_size[1] / 1.2)), pygame.RESIZABLE)
+        fullscreen = not fullscreen
+
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_p:  # Recenter
+        recenter_window()
+
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
+        current_width -= 50
+        current_height -= 50
+
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_o:
+        current_width += 50
+        current_height += 50
+
+    # if event.type == pygame.VIDEORESIZE:
+
+
+def window_fixsize():
+    global fake_screen, display_window_width, display_window_height
+
+    if display_window_width != current_width or display_window_height != current_height:
+        fake_screen = pygame.display.set_mode((int(current_height * 16 / 9), current_height), pygame.RESIZABLE)
+        display_window_width = current_width
+        display_window_height = current_height
+
+
+def draw_any():
+    global current_width, current_height
+    window_fixsize()
+    # print(fake_screen.get_rect().size)
+    current_width = int(fake_screen.get_rect().size[1] * 16/9)
+    current_height = fake_screen.get_rect().size[1]
+    fake_screen.blit(pygame.transform.scale(screen, (current_width, current_height)), (0, 0))
+    pygame.display.flip()
+    
+
+class Timer:
+    def __init__(self, length):
+        self.length = length
+        self.start_time = None
+        self.pause_start_time = None
+        self.paused = False
+
+    def start(self):
+        self.start_time = time.time()
+
+    def pause(self):
+        self.pause_start_time = time.time()
+        self.paused = True
+
+    def resume(self):
+        time_paused = time.time() - self.pause_start_time
+        self.start_time = self.start_time + time_paused
+        self.paused = False
+
+    def get(self):
+        if self.paused:
+            return self.length - (self.pause_start_time - self.start_time)
+        else:
+            return self.length - (time.time() - self.start_time)
 
 
 def modify(key):
@@ -51,7 +132,7 @@ def reset_all():
     # score
 
 
-def asset(file_name):
+def mypath(file_name):
     return os.path.join('assets', file_name)
 
 
@@ -73,27 +154,32 @@ def play_game(win_score):
 
         t_end = time.time() + 2
         if scored:
+            p1_boost_timer.pause()
+            p2_boost_timer.pause()
             player_1.force, player_2.force = 0, 0
             while time.time() < t_end:
                 space.step(dt)
                 update_and_draw()
-                pygame.display.flip()
+                # pygame.display.flip()
+                draw_any()
                 clock.tick(fps)
             scored = False
             reset()
+            p1_boost_timer.resume()
+            p2_boost_timer.resume()
 
         if player_1.score >= win_score:
             player_1.delete()
             player_2.delete()
-            score_text = score_font.render('0 - 0', True, (210, 210, 210))
+            score_text = score_font.render('0 - 0', True, score_text_color)
             return 'player 1'
         elif player_2.score >= win_score:
             player_1.delete()
             player_2.delete()
-            score_text = score_font.render('0 - 0', True, (210, 210, 210))
+            score_text = score_font.render('0 - 0', True, score_text_color)
             return 'player 2'
 
-        score_text = score_font.render(str(player_2.score) + ' - ' + str(player_1.score), True, (210, 210, 210))
+        score_text = score_font.render(str(player_2.score) + ' - ' + str(player_1.score), True, score_text_color)
 
         keys()
 
@@ -147,9 +233,11 @@ def customization_screen(p1_info, p2_info):
     p2_outline_pos, p2_desired_outline_pos = 0, 0
 
     while True:
+        window_fixsize()
+
         screen.fill((33, 33, 33))
 
-        title_font = pygame.font.Font(asset('Font.TTF'), 200)
+        title_font = pygame.font.Font(mypath('Font.TTF'), 200)
         title_text = title_font.render('Head Soccer', True, (235, 235, 235))
 
         title_scale = 0.025 * (np.sin(time.time()) + 30)
@@ -167,7 +255,7 @@ def customization_screen(p1_info, p2_info):
         selection_wheel(p2_hs_display, p2_hs_angle, p2_hs_shift, p2_hs_pos, 'head')
         selection_wheel(p2_cs_display, p2_cs_angle, p2_cs_shift, p2_cs_pos, 'cleat')
 
-        pygame.display.flip()
+        draw_any()
 
         p1_outline_pos = p1_outline_pos * (sw_smoothing - 1) / sw_smoothing + p1_desired_outline_pos * 1 / sw_smoothing
         p2_outline_pos = p2_outline_pos * (sw_smoothing - 1) / 5 + p2_desired_outline_pos * 1 / sw_smoothing
@@ -178,6 +266,8 @@ def customization_screen(p1_info, p2_info):
         p2_cs_angle = p2_cs_angle * (sw_smoothing - 1) / sw_smoothing + p2_desired_cs_angle * 1 / sw_smoothing
 
         for event in pygame.event.get():
+            window_key_control(event)
+
             if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 sys.exit()
@@ -206,7 +296,7 @@ def customization_screen(p1_info, p2_info):
                         title_text_rect = title_text.get_rect()
                         title_text_rect.center = (width // 2, 200)
                         screen.blit(title_text, title_text_rect)
-                        pygame.display.flip()
+                        draw_any()
                     else:
                         break
 
@@ -228,12 +318,13 @@ def customization_screen(p1_info, p2_info):
                 pygame.mixer.Sound.play(countdown_sound)
                 for i in range(3, 0, -1):
                     update_and_draw()
-                    countdown_font = pygame.font.Font(asset('Font.TTF'), 150)
+                    # countdown_font = pygame.font.Font(mypath('Font.TTF'), 150)
+                    countdown_font = goal_font
                     countdown_text = countdown_font.render(str(i), True, (230, 230, 230))
                     countdown_text_rect = countdown_text.get_rect()
-                    countdown_text_rect.center = (width // 2, 300)
+                    countdown_text_rect.center = (width // 2, 400)
                     screen.blit(countdown_text, countdown_text_rect)
-                    pygame.display.flip()
+                    draw_any()
                     time.sleep(1)
 
                 customize = False
@@ -339,7 +430,7 @@ def selection_wheel(selection_display, angle, shift, position, wheel_type):
 
         item = selection_display[i]
         if wheel_type == 'head':
-            item_image = pygame.image.load(asset(item + '_Head.png'))
+            item_image = pygame.image.load(mypath(item + '_Head.png'))
             item_image.set_alpha(o)
 
             item_surface = pygame.transform.scale(item_image, (
@@ -347,7 +438,7 @@ def selection_wheel(selection_display, angle, shift, position, wheel_type):
                     distance_scale * head_scale[item][1] * head_size / item_image.get_size()[0] *
                     item_image.get_size()[1])))
         else:
-            item_image = pygame.image.load(asset('Cleat ' + str(item) + '.png'))
+            item_image = pygame.image.load(mypath('Cleat ' + str(item) + '.png'))
             item_image.set_alpha(o)
 
             item_surface = pygame.transform.scale(item_image, (
@@ -359,13 +450,20 @@ def selection_wheel(selection_display, angle, shift, position, wheel_type):
             center=(position[0] + np.sin(np.deg2rad(a)) * 150, position[1])))
 
 
+def progress_bar(current, place):
+    if place == 'left':
+        pygame.draw.rect(screen, (100, 100, 100), pygame.Rect(pb_x - pb_outline_size, pb_y - pb_outline_size, pb_width + 2 * pb_outline_size, pb_height + 2 * pb_outline_size), 0, int(pb_rounding * 1.5))
+        pygame.draw.rect(screen, (100, 190, 100), pygame.Rect(pb_x, pb_y, current * pb_width/boost_delay, pb_height), 0, pb_rounding)
+    else:
+        pygame.draw.rect(screen, (100, 100, 100), pygame.Rect(width - pb_x - pb_width - pb_outline_size, pb_y - pb_outline_size, pb_width + 2 * pb_outline_size, pb_height + 2 * pb_outline_size), 0, int(pb_rounding * 1.5))
+        pygame.draw.rect(screen, (100, 190, 100), pygame.Rect(width - pb_x - pb_width, pb_y, current * pb_width/boost_delay, pb_height), 0, pb_rounding)
+
+
 def update_and_draw():
     global score_text_rect
 
     player_1.leg_shape.elasticity = -0.00122807 * player_1.head_body.position.y + 1.67544
     player_2.leg_shape.elasticity = -0.00122807 * player_2.head_body.position.y + 1.67544
-
-    # print(player_1.leg_shape.elasticity)
 
     player_1.update()
     player_2.update()
@@ -379,10 +477,19 @@ def update_and_draw():
     score_text_rect.center = (width // 2, 100)
 
     screen.fill((33, 33, 33))
+
     draw_borders()
     ball.draw()
     player_1.draw(player_1_head, player_1_cleat)
     player_2.draw(player_2_head, player_2_cleat)
+
+    try:
+        progress_bar(min(boost_delay - p2_boost_timer.get(), boost_delay), 'left')
+        progress_bar(min(boost_delay - p1_boost_timer.get(), boost_delay), 'right')
+    except:
+        pass
+
+    # screen.blit(gametime_text, gametime_text_rect)
 
     screen.blit(score_text, score_text_rect)
     if scored:
@@ -390,7 +497,7 @@ def update_and_draw():
 
 
     # space.debug_draw(draw_options)
-    pygame.display.flip()
+    draw_any()
 
 
 def reset():
@@ -474,24 +581,41 @@ class Ball:
         screen.blit(ball_surface, ball_surface.get_rect(center=(int(ball.body.position.x), int(ball.body.position.y))))
 
     def update(self):
-        global ball_surface, scored, goal_sfx
+        global ball_surface, scored, goal_sfx, cheer_sfx
         ball_surface = pygame.transform.rotate(original_ball_surface, -(ball.body.angle * 180 / math.pi) % 360)
 
         if self.body.position.y > height - goal_height and not scored:
             if self.body.position.x < goal_width:
                 player_1.score += 1
                 scored = True
-                goal_sound = pygame.mixer.Sound(asset('Goal ' + str(goal_sfx) + '.mp3'))
-                goal_sound.set_volume(1)
+
+                cheer_sound = pygame.mixer.Sound(mypath('Cheer ' + str(cheer_sfx) + '.wav'))
+                cheer_sound.set_volume(0.75)
+                pygame.mixer.Sound.play(cheer_sound)
+                last_cheer_sfx = cheer_sfx
+                while cheer_sfx == last_cheer_sfx:
+                    cheer_sfx = random.randint(1, 4)
+
+                goal_sound = pygame.mixer.Sound(mypath('Goal ' + str(goal_sfx) + '.mp3'))
+                goal_sound.set_volume(0.75)
                 pygame.mixer.Sound.play(goal_sound)
                 last_goal_sfx = goal_sfx
                 while goal_sfx == last_goal_sfx:
                     goal_sfx = random.randint(1, 5)
+
             elif self.body.position.x > width - goal_width:
                 player_2.score += 1
                 scored = True
-                goal_sound = pygame.mixer.Sound(asset('Goal ' + str(goal_sfx) + '.mp3'))
-                goal_sound.set_volume(1)
+
+                cheer_sound = pygame.mixer.Sound(mypath('Cheer ' + str(cheer_sfx) + '.wav'))
+                cheer_sound.set_volume(0.7)
+                pygame.mixer.Sound.play(cheer_sound)
+                last_cheer_sfx = cheer_sfx
+                while cheer_sfx == last_cheer_sfx:
+                    cheer_sfx = random.randint(1, 4)
+
+                goal_sound = pygame.mixer.Sound(mypath('Goal ' + str(goal_sfx) + '.mp3'))
+                goal_sound.set_volume(0.75)
                 pygame.mixer.Sound.play(goal_sound)
                 last_goal_sfx = goal_sfx
                 while goal_sfx == last_goal_sfx:
@@ -655,8 +779,10 @@ class Player:
 
 
 def keys():
-    global playing, p1_dtap_start, p1_dtap_start, p1_boost_wait_start, p2_boost_wait_start
+    global playing, p1_dtap_start, p1_dtap_start, p1_boost_timer, p2_boost_timer
     for event in pygame.event.get():
+        window_key_control(event)
+
         if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             pygame.quit()
             sys.exit()
@@ -668,23 +794,25 @@ def keys():
             player_1.increase_jump = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
             player_1.force = 1
-            if p1_dtap_start['right'] and time.time() - p1_dtap_start['right'] < dtap_time and time.time() - p1_boost_wait_start > boost_delay:
+            if p1_dtap_start['right'] and time.time() - p1_dtap_start['right'] < dtap_time and p1_boost_timer.get() < 0:
                 # p1_boost_wait_start
                 print('right double tapped player 1')
                 player_1.head_shape.body.apply_force_at_local_point((boost_force, 0), (0, 0))
                 p1_dtap_start['right'] = False
-                p1_boost_wait_start = time.time()
+                p1_boost_timer = Timer(boost_delay)
+                p1_boost_timer.start()
             else:
                 p1_dtap_start['right'] = time.time()
         if event.type == pygame.KEYUP and event.key == pygame.K_RIGHT and player_1.force != -1:
             player_1.force = 0
         if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
             player_1.force = -1
-            if p1_dtap_start['left'] and time.time() - p1_dtap_start['left'] < dtap_time and time.time() - p1_boost_wait_start > boost_delay:
+            if p1_dtap_start['left'] and time.time() - p1_dtap_start['left'] < dtap_time and p1_boost_timer.get() < 0:
                 print('left double tapped player 1')
                 player_1.head_shape.body.apply_force_at_local_point((-boost_force, 0), (0, 0))
                 p1_dtap_start['left'] = False
-                p1_boost_wait_start = time.time()
+                p1_boost_timer = Timer(boost_delay)
+                p1_boost_timer.start()
             else:
                 p1_dtap_start['left'] = time.time()
         if event.type == pygame.KEYUP and event.key == pygame.K_LEFT and player_1.force != 1:
@@ -699,22 +827,24 @@ def keys():
             player_2.increase_jump = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_d:
             player_2.force = 1
-            if p2_dtap_start['right'] and time.time() - p2_dtap_start['right'] < dtap_time and time.time() - p2_boost_wait_start > boost_delay:
+            if p2_dtap_start['right'] and time.time() - p2_dtap_start['right'] < dtap_time and p2_boost_timer.get() < 0:
                 print('right double tapped player 2')
                 p2_dtap_start['right'] = False
                 player_2.head_shape.body.apply_force_at_local_point((boost_force, 0), (0, 0))
-                p2_boost_wait_start = time.time()
+                p2_boost_timer = Timer(boost_delay)
+                p2_boost_timer.start()
             else:
                 p2_dtap_start['right'] = time.time()
         if event.type == pygame.KEYUP and event.key == pygame.K_d and player_2.force != -1:
             player_2.force = 0
         if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
             player_2.force = -1
-            if p2_dtap_start['left'] and time.time() - p2_dtap_start['left'] < dtap_time and time.time() - p2_boost_wait_start > boost_delay:
+            if p2_dtap_start['left'] and time.time() - p2_dtap_start['left'] < dtap_time and p2_boost_timer.get() < 0:
                 print('left double tapped player 2')
                 p2_dtap_start['left'] = False
                 player_2.head_shape.body.apply_force_at_local_point((-boost_force, 0), (0, 0))
-                p2_boost_wait_start = time.time()
+                p2_boost_timer = Timer(boost_delay)
+                p2_boost_timer.start()
             else:
                 p2_dtap_start['left'] = time.time()
         if event.type == pygame.KEYUP and event.key == pygame.K_a and player_2.force != 1:
@@ -742,21 +872,41 @@ if __name__ == "__main__":
     dt = 1 / fps
     physics_steps_per_frame = 1
 
+    fullscreen = False
+
+    screen_size = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+
+    x, y = 100, 100
+    os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (x, y)
+
     width = 1600
     height = 900
-    screen = pygame.display.set_mode((width, height))
+    current_width = width
+    current_height = height
+    display_window_width = width
+    display_window_height = height
+    fake_screen = pygame.display.set_mode((current_width, current_height), pygame.RESIZABLE)
+    screen = fake_screen.copy()
     pygame.display.set_caption('Head Soccer')
     clock = pygame.time.Clock()
 
     draw_options = pymunk.pygame_util.DrawOptions(screen)
 
-    goal_font = pygame.font.Font(asset('Font.TTF'), 200)
-    goal_text = goal_font.render('Goal!', True, (220, 220, 220))
+    goal_text_color = (230, 230, 230)
+    goal_font = pygame.font.Font(mypath('Font.TTF'), 200)
+    goal_text = goal_font.render('Goal!', True, goal_text_color)
     goal_text_rect = goal_text.get_rect()
-    goal_text_rect.center = (width // 2, 300)
+    goal_text_rect.center = (width // 2, 350)
 
-    score_font = pygame.font.Font(asset('Font.TTF'), 100)
-    score_text = score_font.render('0 - 0', True, (210, 210, 210))
+    score_text_color = (220, 220, 220)
+    score_font = pygame.font.Font(mypath('Squarely.TTF'), 115)
+    score_text = score_font.render('0 - 0', True, score_text_color)
+
+    # gametime_text_color = (220, 220, 220)
+    # gametime_font = pygame.font.Font(mypath('Squarely.TTF'), 40)
+    # gametime_text = gametime_font.render('6:59', True, gametime_text_color)
+    # gametime_text_rect = gametime_text.get_rect()
+    # gametime_text_rect.center = (width // 2, 170)
 
     goal_height = 250 + modify('goal height')
     goal_width = 75 + modify('goal width')
@@ -774,10 +924,16 @@ if __name__ == "__main__":
     border = create_borders()
     floor_object = border[-2]
 
+    # pb stands for progress bar
+    pb_x, pb_y = 30, 30
+    pb_rounding = 10
+    pb_width, pb_height = 150, 25
+    pb_outline_size = 5
+
     ball_size = 45 + modify('ball size')
     max_initial_ball_vel = 275
-    ball_start_x, ball_start_y = width / 2, 150
-    ball_image = pygame.image.load(asset("Soccer Ball.png"))
+    ball_start_x, ball_start_y = width / 2, 200
+    ball_image = pygame.image.load(mypath("Soccer Ball.png"))
     ball_surface = pygame.transform.scale(ball_image, (ball_size, ball_size))
     original_ball_surface = ball_surface
     ball = Ball(ball_start_x, ball_start_y)
@@ -796,14 +952,14 @@ if __name__ == "__main__":
     heads = ['Nuwan', 'Mihir', 'Dad']
     head_surfaces = {}
     for i in heads:
-        head_image = pygame.image.load(asset(str(i) + '_Head.png'))
+        head_image = pygame.image.load(mypath(str(i) + '_Head.png'))
         head_surfaces[i] = pygame.transform.scale(head_image, (int(head_size * head_scale[i][0]), int(
             head_scale[i][1] * head_size / head_image.get_size()[0] * head_image.get_size()[1])))
 
     cleat_size = 50
     original_cleat_surfaces = {}
     for i in range(1, num_cleats + 1):
-        cleat_image = pygame.image.load(asset('Cleat ' + str(i) + '.png'))
+        cleat_image = pygame.image.load(mypath('Cleat ' + str(i) + '.png'))
         original_cleat_surfaces[i] = pygame.transform.scale(cleat_image, (
             cleat_size, int(cleat_size / cleat_image.get_size()[0] * cleat_image.get_size()[1])))
 
@@ -817,22 +973,23 @@ if __name__ == "__main__":
     motor_p_gain = 40
 
     # playsound.playsound('', False)
-    kick_sound = pygame.mixer.Sound(asset('kick_ball.wav'))
-    kick_sound.set_volume(0.75)
+    kick_sound = pygame.mixer.Sound(mypath('kick_ball.wav'))
+    kick_sound.set_volume(0.95)
 
-    countdown_sound = pygame.mixer.Sound(asset('Countdown.mp3'))
+    countdown_sound = pygame.mixer.Sound(mypath('Countdown.mp3'))
     countdown_sound.set_volume(0.75)
 
-    selection_sound = pygame.mixer.Sound(asset('Small_pop.wav'))
+    selection_sound = pygame.mixer.Sound(mypath('Small_pop.wav'))
     selection_sound.set_volume(0.75)
 
-    start_game_sound = pygame.mixer.Sound(asset('Start_Game.wav'))
+    start_game_sound = pygame.mixer.Sound(mypath('Start_Game.wav'))
     start_game_sound.set_volume(0.75)
 
-    pygame.mixer.music.load(asset('background_crowd.wav'))
-    pygame.mixer.music.set_volume(0.04)
+    pygame.mixer.music.load(mypath('background_crowd.wav'))
+    pygame.mixer.music.set_volume(0.15)
 
     goal_sfx = 1
+    cheer_sfx = 1
 
     p1_start_info = {'head': 'Mihir', 'cleat': 8}
     p2_start_info = {'head': 'Nuwan', 'cleat': 3}
@@ -852,7 +1009,7 @@ if __name__ == "__main__":
     # dtap stands for Double Tap
     dtap_time = 0.3
     p1_dtap_start, p2_dtap_start = {'right': False, 'left': False}, {'right': False, 'left': False}
-    boost_delay = 3
+    boost_delay = 20
     boost_force = 30000000
 
     scored = False
@@ -865,6 +1022,8 @@ if __name__ == "__main__":
     while True:
         customization_screen(p1_start_info, p2_start_info)
 
-        p1_boost_wait_start, p2_boost_wait_start = time.time(), time.time()
-        winner = play_game(5)
+        p1_boost_timer, p2_boost_timer = Timer(boost_delay), Timer(boost_delay)
+        p1_boost_timer.start()
+        p2_boost_timer.start()
+        winner = play_game(10)
         next_screen = end_screen(winner)
