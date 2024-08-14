@@ -11,7 +11,7 @@ Created by Nuwan Dewasurendra
 
 Note: The window is resizable
 
-Double tap to dash after your bar is full.
+Double tap to dash after your bar is full. Hold jump to jump higher.
 
 ### Player 1 Controls:
 * A and D keys to move left and right respectively
